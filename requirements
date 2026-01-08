@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+transformers
+torch
+keybert
+sentence-transformers
+azure-cognitiveservices-speech
+pydantic
