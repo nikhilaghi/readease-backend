@@ -37,6 +37,7 @@ app.add_middleware(
 
 class TextInput(BaseModel):
     text: str = Field(..., max_length=2000, min_length=1)
+    level: str = Field(default="medium")
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
@@ -84,46 +85,78 @@ def clean_output(text: str) -> str:
         text += "."
     return text
 
-    
-def explain_text(text: str) -> str:
+def estimate_reading_time(text: str) -> int:
+    words = len(text.split())
+    return max(1, round(words / 200)) 
+
+
+def estimate_grade_level(text: str) -> str:
+    words = text.split()
+    avg_word_len = sum(len(w) for w in words) / max(1, len(words))
+
+    if avg_word_len < 4.5:
+        return "Grade 4–6"
+    elif avg_word_len < 5.5:
+        return "Grade 7–9"
+    elif avg_word_len < 6.5:
+        return "Grade 10–12"
+    else:
+        return "College level"
+
+
+
+def explain_text(text: str, level: str = "medium"):
+    if level not in {"simple", "medium", "hard"}:
+        level = "medium"
+
     if not text.strip():
         raise HTTPException(status_code=400, detail="Empty text")
 
     sentences = re.split(r'(?<=[.!?])\s+', text)
-    simplified = []
+    output = []
 
     for sentence in sentences:
-        if len(sentence.split()) < 12:
-            continue
-
         sentence = simplify_vocabulary(sentence)
+        words = sentence.split()
 
-        clauses = re.split(r'[;,]', sentence)
-        selected = []
+        if level == "simple":
+            if len(words) < 8:
+                continue
 
-        for clause in clauses:
-            clause = clause.strip()
-            if len(clause.split()) >= 8:
-                selected.append(clause)
-            if len(selected) == 2:
-                break
+            sentence = sentence.replace(",", "").replace(";", "")
+            sentence = re.sub(r'^(and|but|so)\s+', '', sentence, flags=re.IGNORECASE)
+            sentence = ' '.join(words[:14])
 
-        if not selected:
-            continue
+            output.append(f"• {sentence.capitalize()}")
 
-        combined = '. '.join(selected).strip()
+        elif level == "medium":
+            if len(words) < 10:
+                continue
+            if len(words) > 30:
+                sentence = ' '.join(words[:25])
 
-        if not combined.endswith(('.', '!', '?')):
-            combined += '.'
+            sentence = sentence.strip()
+            sentence = sentence[0].upper() + sentence[1:]
+            output.append(sentence)
 
-        simplified.append(combined)
+        else:  
+            if len(words) < 12:
+                continue
 
-        if len(simplified) == 3:
+            sentence = sentence.strip()
+            sentence = sentence[0].upper() + sentence[1:]
+            output.append(sentence)
+
+        if len(output) == (5 if level == "simple" else 3):
             break
 
-    final = ' '.join(simplified)
-    final = re.sub(r'\s+\.', '.', final)
-    return final
+    final_text = "\n".join(output) if level == "simple" else " ".join(output)
+
+    return {
+        "text": final_text,
+        "reading_time_minutes": estimate_reading_time(final_text),
+        "estimated_grade_level": estimate_grade_level(final_text)
+    }
 
 
 
@@ -142,7 +175,11 @@ def extract_key_ideas(text: str) -> list:
 
 @app.post("/simplify")
 async def simplify_text(data: TextInput):
-    return {"simplified_text": explain_text(data.text), "status": "success"}
+    return {
+        "simplified_text": explain_text(data.text, data.level),
+        "status": "success"
+    }
+
 
 @app.post("/key-ideas")
 async def key_ideas(data: TextInput):
@@ -150,11 +187,16 @@ async def key_ideas(data: TextInput):
 
 @app.post("/process")
 async def process_text(data: TextInput):
+    explanation = explain_text(data.text, data.level)
+
     return {
-        "simplified_text": explain_text(data.text),
+        "simplified_text": explanation["text"],
+        "reading_time_minutes": explanation["reading_time_minutes"],
+        "estimated_grade_level": explanation["estimated_grade_level"],
         "key_ideas": extract_key_ideas(data.text),
         "status": "success"
     }
+
 
 @app.post("/speak")
 async def speak_text(data: TextInput):
