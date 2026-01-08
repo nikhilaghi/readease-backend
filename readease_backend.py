@@ -103,6 +103,17 @@ def estimate_grade_level(text: str) -> str:
     else:
         return "College level"
 
+def trim_bad_ending(sentence: str) -> str:
+    bad_endings = {
+        "and", "but", "or", "which", "that", "because", "while", "so"
+    }
+
+    words = sentence.split()
+    while words and words[-1].lower().strip(",.;:") in bad_endings:
+        words.pop()
+
+    return " ".join(words)
+
 
 
 def explain_text(text: str, level: str = "medium"):
@@ -119,39 +130,44 @@ def explain_text(text: str, level: str = "medium"):
         sentence = simplify_vocabulary(sentence)
         words = sentence.split()
 
+        # SIMPLE
         if level == "simple":
             if len(words) < 8:
                 continue
 
             sentence = sentence.replace(",", "").replace(";", "")
             sentence = re.sub(r'^(and|but|so)\s+', '', sentence, flags=re.IGNORECASE)
-            sentence = ' '.join(words[:14]).rstrip(",;:") + "."
+            sentence = ' '.join(words[:14]).rstrip(",;:")
+            sentence = trim_bad_ending(sentence)
+            sentence += "."
+
             output.append(f"• {sentence.capitalize()}")
 
+        # MEDIUM
         elif level == "medium":
             if len(words) < 10:
                 continue
 
             if len(words) > 30:
-                sentence = ' '.join(words[:25]).rstrip(",;:") + "."
-            else:
-                sentence = sentence.rstrip(",;:")
+                sentence = ' '.join(words[:25])
 
+            sentence = sentence.rstrip(",;:")
+            sentence = trim_bad_ending(sentence)
             sentence = sentence.strip()
-            sentence = sentence[0].upper() + sentence[1:]
 
+            sentence = sentence[0].upper() + sentence[1:]
             if not sentence.endswith(('.', '!', '?')):
                 sentence += "."
 
             output.append(sentence)
 
+        # HARD
         else:
             if len(words) < 12:
                 continue
 
             sentence = sentence.strip()
             sentence = sentence[0].upper() + sentence[1:]
-
             if not sentence.endswith(('.', '!', '?')):
                 sentence += "."
 
