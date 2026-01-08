@@ -83,6 +83,8 @@ def clean_output(text: str) -> str:
     if text and not re.search(r"[.!?]$", text):
         text += "."
     return text
+
+    
 def explain_text(text: str) -> str:
     if not text.strip():
         raise HTTPException(status_code=400, detail="Empty text")
@@ -96,8 +98,7 @@ def explain_text(text: str) -> str:
 
         sentence = simplify_vocabulary(sentence)
 
-        # Split into clauses safely
-        clauses = re.split(r'[;–—]', sentence)
+        clauses = re.split(r'[;,]', sentence)
         selected = []
 
         for clause in clauses:
@@ -123,6 +124,7 @@ def explain_text(text: str) -> str:
     final = ' '.join(simplified)
     final = re.sub(r'\s+\.', '.', final)
     return final
+
 
 
 
