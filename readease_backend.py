@@ -180,7 +180,22 @@ VOCABULARY_DB = {
 }
 
 
+def safe_sentence(sentence: str) -> str:
+    bad_endings = {
+        "and", "but", "or", "which", "that", "because",
+        "while", "to", "has", "have", "had", "with",
+        "also", "as", "by", "from"
+    }
+
+    words = sentence.split()
+    while words and words[-1].lower().strip(",.;:") in bad_endings:
+        words.pop()
+
+    return " ".join(words)
+
+
 def explain_text(text: str, level: str = "medium", mode: str = "summary"):
+    # ---------- VALIDATION ----------
     if level not in {"simple", "medium", "hard"}:
         level = "medium"
 
@@ -190,67 +205,63 @@ def explain_text(text: str, level: str = "medium", mode: str = "summary"):
     if not text.strip():
         raise HTTPException(status_code=400, detail="Empty text")
 
+    # ---------- NORMALIZE ----------
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # ---------- SENTENCE SPLIT ----------
     sentences = re.split(r'(?<=[.!?])\s+', text)
-    output = []
+
+    simplified_sentences = []
 
     for sentence in sentences:
+        # ---------- VOCAB SIMPLIFICATION ----------
         sentence = simplify_vocabulary(sentence)
-
         for word, simple in ACADEMIC_SIMPLIFY_MAP.items():
-            sentence = re.sub(rf"\b{word}\b", simple, sentence, flags=re.IGNORECASE)
+            sentence = re.sub(
+                rf"\b{word}\b",
+                simple,
+                sentence,
+                flags=re.IGNORECASE
+            )
 
-        words = sentence.split()
-
-        # SIMPLE
-        if level == "simple":
-            if len(words) < 8:
-                continue
-
-            sentence = sentence.replace(",", "").replace(";", "")
-            sentence = re.sub(r'^(and|but|so)\s+', '', sentence, flags=re.IGNORECASE)
-            sentence = ' '.join(words[:14])
-            sentence = trim_bad_ending(sentence)
-            output.append(f"• {sentence.capitalize()}.")
-
-        # MEDIUM
-        elif level == "medium":
-            if len(words) < 10:
-                continue
-
-            if mode == "summary" and len(words) > 30:
-                sentence = ' '.join(words[:25])
-                sentence = trim_bad_ending(sentence)
-
-            sentence = close_unmatched_parenthesis(sentence)
-            sentence = sentence.strip().capitalize()
-            if not sentence.endswith(('.', '!', '?')):
-                sentence += "."
-
-            output.append(sentence)
-
-        # HARD
+        # ---------- BREAK LONG SENTENCES ----------
+        if len(sentence.split()) > 28:
+            parts = re.split(
+                r",|;|—|\bwhich\b|\bthat\b|\bbecause\b|\bwhile\b",
+                sentence,
+                flags=re.IGNORECASE
+            )
         else:
-            if len(words) < 12:
+            parts = [sentence]
+
+        for part in parts:
+            part = part.strip()
+            part = safe_sentence(part)
+
+            if len(part.split()) < 6:
                 continue
 
-            if mode == "summary" and len(words) > 40:
-                sentence = ' '.join(words[:30])
-                sentence = trim_bad_ending(sentence)
+            part = part.capitalize()
+            if not part.endswith(('.', '!', '?')):
+                part += "."
 
-            sentence = sentence.strip().capitalize()
-            if not sentence.endswith(('.', '!', '?')):
-                sentence += "."
+            simplified_sentences.append(part)
 
-            output.append(sentence)
+    # ---------- SUMMARY MODE ----------
+    if mode == "summary":
+        if level == "simple":
+            final_text = "\n".join(f"• {s}" for s in simplified_sentences[:5])
+        else:
+            final_text = " ".join(simplified_sentences[:6])
 
-        # SUMMARY LIMIT
-        if mode == "summary":
-            max_lines = 5 if level == "simple" else 6
-            if len(output) >= max_lines:
-                break
+    # ---------- REWRITE MODE ----------
+    else:
+        if level == "simple":
+            final_text = "\n".join(f"• {s}" for s in simplified_sentences)
+        else:
+            final_text = " ".join(simplified_sentences)
 
-    final_text = "\n".join(output) if level == "simple" else " ".join(output)
-
+    # ---------- FALLBACK ----------
     if not final_text.strip():
         final_text = "The text could not be simplified meaningfully."
 
@@ -259,6 +270,7 @@ def explain_text(text: str, level: str = "medium", mode: str = "summary"):
         "reading_time_minutes": estimate_reading_time(final_text),
         "estimated_grade_level": estimate_grade_level(final_text)
     }
+
 
 
 
