@@ -94,11 +94,17 @@ def explain_text(text: str) -> str:
         if len(sentence) < 10: continue
         simple = simplify_vocabulary(sentence)
         words = simple.split()
-        if len(words) > 25:
-            simple = ' '.join(words[:22]) + '.'
-        simplified.append(simple)
-    
-    return clean_output(' '.join(simplified))
+        if len(simple.split()) > 25:
+            parts = re.split(r'[;,–—]', simple)
+            if parts:
+                simple = parts[0].strip()
+            if not simple.endswith(('.', '!', '?')):
+                    simple += '.'
+
+    final = ' '.join(simplified)
+final = re.sub(r'\s+\.', '.', final)
+return clean_output(final)
+
 
 def extract_key_ideas(text: str) -> list:
     words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
@@ -161,10 +167,11 @@ async def speak_text(data: TextInput):
     raise HTTPException(status_code=503, detail="No TTS available. pip3 install gtts")
 
 if __name__ == "__main__":
-    print("\n🚀 ReadEase API - FULL FIXED VERSION")
-    print(f"🎵 gTTS ready: {GTTS_AVAILABLE}")
-    print(f"🔊 Azure ready: {AZURE_AVAILABLE}")
-    print("🌐 http://127.0.0.1:8000")
-    print("=" * 50)
-    uvicorn.run("readease_backend:app", host="127.0.0.1", port=8000, reload=True, log_level="info")
+    import uvicorn
+    uvicorn.run(
+        "readease_backend:app",
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8000))
+    )
+  
 
