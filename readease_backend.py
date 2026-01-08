@@ -55,10 +55,18 @@ async def global_exception_handler(request, exc):
 async def home():
     return {
         "status": "running ✅",
+        "purpose": "AI-powered accessible reading comprehension API for students",
         "gtts_ready": GTTS_AVAILABLE,
         "azure_ready": AZURE_AVAILABLE,
-        "endpoints": ["/health", "/simplify", "/key-ideas", "/process", "/speak"]
+        "endpoints": [
+            "/health",
+            "/simplify",
+            "/key-ideas",
+            "/process",
+            "/speak"
+        ]
     }
+
 
 @app.get("/health")
 async def health():
@@ -119,6 +127,57 @@ def close_unmatched_parenthesis(sentence: str) -> str:
         sentence = sentence.rsplit("(", 1)[0].strip()
     return sentence
 
+ACADEMIC_SIMPLIFY_MAP = {
+    "ontological": "about existence",
+    "epistemological": "about knowledge",
+    "ephemeral": "short-lived",
+    "perennial": "long-lasting",
+    "hermeneutics": "interpretation",
+    "paradox": "contradiction",
+    "recalibration": "adjustment",
+    "discourse": "discussion",
+    "verity": "truth"
+}
+
+VOCABULARY_DB = {
+    "ontological": {
+        "meaning": "related to the nature of existence",
+        "example": "The ontological question asks what truly exists."
+    },
+    "epistemological": {
+        "meaning": "related to the study of knowledge",
+        "example": "Epistemological debates focus on how we know things."
+    },
+    "ephemeral": {
+        "meaning": "lasting for a very short time",
+        "example": "Online trends are often ephemeral."
+    },
+    "perennial": {
+        "meaning": "lasting for a long time",
+        "example": "Education is a perennial human need."
+    },
+    "hermeneutics": {
+        "meaning": "the theory of interpretation",
+        "example": "Hermeneutics helps interpret complex texts."
+    },
+    "paradox": {
+        "meaning": "a statement that seems contradictory but may be true",
+        "example": "It is a paradox that less is sometimes more."
+    },
+    "recalibration": {
+        "meaning": "the process of adjusting something",
+        "example": "The system needs recalibration after updates."
+    },
+    "labyrinthine": {
+        "meaning": "very complex or confusing",
+        "example": "The rules were labyrinthine and hard to follow."
+    },
+    "cognition": {
+        "meaning": "the mental process of thinking and understanding",
+        "example": "Reading improves cognition."
+    }
+}
+
 
 def explain_text(text: str, level: str = "medium"):
     if level not in {"simple", "medium", "hard"}:
@@ -132,6 +191,15 @@ def explain_text(text: str, level: str = "medium"):
 
     for sentence in sentences:
         sentence = simplify_vocabulary(sentence)
+
+        for word, simple in ACADEMIC_SIMPLIFY_MAP.items():
+            sentence = re.sub(
+                rf"\b{word}\b",
+                simple,
+                sentence,
+                flags=re.IGNORECASE
+            )
+
         words = sentence.split()
 
         # SIMPLE
@@ -144,7 +212,6 @@ def explain_text(text: str, level: str = "medium"):
             sentence = ' '.join(words[:14]).rstrip(",;:")
             sentence = trim_bad_ending(sentence)
             sentence += "."
-
             output.append(f"• {sentence.capitalize()}")
 
         # MEDIUM
@@ -155,12 +222,10 @@ def explain_text(text: str, level: str = "medium"):
             if len(words) > 30:
                 sentence = ' '.join(words[:25])
 
-            sentence = sentence.rstrip(",;:")
             sentence = trim_bad_ending(sentence)
             sentence = close_unmatched_parenthesis(sentence)
+
             sentence = sentence.strip()
-
-
             sentence = sentence[0].upper() + sentence[1:]
             if not sentence.endswith(('.', '!', '?')):
                 sentence += "."
@@ -190,21 +255,68 @@ def explain_text(text: str, level: str = "medium"):
         "estimated_grade_level": estimate_grade_level(final_text)
     }
 
-
-
-
-
 def extract_key_ideas(text: str) -> list:
-    words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
-    stop_words = {'the', 'and', 'for', 'are', 'have', 'this', 'with', 'from'}
-    filtered = [w for w in words if w not in stop_words and len(w) > 3]
-    
-    if not filtered:
-        return ["No key ideas found"]
-    
+    text = text.lower()
+
+    verb_blacklist = {
+        "is", "are", "was", "were", "be", "being", "been",
+        "have", "has", "had", "do", "does", "did",
+        "make", "makes", "made", "use", "using",
+        "require", "requires", "needed", "need"
+    }
+
+    stop_words = {
+        "the", "and", "of", "to", "for", "with", "in",
+        "on", "at", "by", "from", "this", "that"
+    }
+
+    words = re.findall(r"\b[a-z]{3,}\b", text)
+
+    phrases = []
+
+    for i in range(len(words) - 1):
+        w1, w2 = words[i], words[i + 1]
+
+        # skip junk
+        if w1 in stop_words or w2 in stop_words:
+            continue
+        if w1 in verb_blacklist or w2 in verb_blacklist:
+            continue
+
+        phrase = f"{w1} {w2}"
+        phrases.append(phrase)
+
+    if not phrases:
+        return ["Key concepts not detected"]
+
     from collections import Counter
-    counter = Counter(filtered).most_common(5)
-    return [f"{word.capitalize()}" for word, count in counter]
+    most_common = Counter(phrases).most_common(5)
+
+    return [phrase.title() for phrase, _ in most_common]
+
+def extract_vocabulary(text: str, limit: int = 5):
+    words = re.findall(r"\b[a-zA-Z]{7,}\b", text.lower())
+
+    seen = set()
+    vocab_list = []
+
+    for word in words:
+        if word in seen:
+            continue
+        seen.add(word)
+
+        if word in VOCABULARY_DB:
+            entry = VOCABULARY_DB[word]
+            vocab_list.append({
+                "word": word,
+                "meaning": entry["meaning"],
+                "example": entry["example"]
+            })
+
+        if len(vocab_list) == limit:
+            break
+
+    return vocab_list
 
 @app.post("/simplify")
 async def simplify_text(data: TextInput):
@@ -213,10 +325,16 @@ async def simplify_text(data: TextInput):
         "status": "success"
     }
 
-
 @app.post("/key-ideas")
 async def key_ideas(data: TextInput):
     return {"key_ideas": extract_key_ideas(data.text), "status": "success"}
+
+@app.post("/vocabulary")
+async def vocabulary_trainer(data: TextInput):
+    return {
+        "daily_words": extract_vocabulary(data.text),
+        "status": "success"
+    }
 
 @app.post("/process")
 async def process_text(data: TextInput):
@@ -227,15 +345,18 @@ async def process_text(data: TextInput):
         "reading_time_minutes": explanation["reading_time_minutes"],
         "estimated_grade_level": explanation["estimated_grade_level"],
         "key_ideas": extract_key_ideas(data.text),
+        "vocabulary": extract_vocabulary(data.text),
+        "accessibility": {
+            "tts_available": GTTS_AVAILABLE or AZURE_AVAILABLE
+        },
         "status": "success"
     }
-
 
 @app.post("/speak")
 async def speak_text(data: TextInput):
     if len(data.text) > 2000:
         raise HTTPException(status_code=413, detail="Max 2000 chars")
-    
+
     if GTTS_AVAILABLE:
         try:
             tts = gTTS(text=data.text, lang='en', slow=False)
@@ -243,25 +364,34 @@ async def speak_text(data: TextInput):
             tts.write_to_fp(mp3_fp)
             mp3_fp.seek(0)
             return StreamingResponse(mp3_fp, media_type="audio/mpeg")
-        except Exception as e:
-            print(f"gTTS failed: {e}")
-    
+        except Exception:
+            pass
+
     if AZURE_AVAILABLE:
         try:
-            speech_config = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
+            speech_config = speechsdk.SpeechConfig(
+                subscription=SPEECH_KEY,
+                region=SPEECH_REGION
+            )
             speech_config.speech_synthesis_voice_name = "en-US-JennyNeural"
             synthesizer = speechsdk.SpeechSynthesizer(speech_config)
-            
+
             result = synthesizer.speak_text_async(data.text).get()
-            
-            if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted and result.audio_data:
-                return StreamingResponse(io.BytesIO(result.audio_data), media_type="audio/wav")
-            else:
-                raise HTTPException(status_code=500, detail=f"Azure failed: {result.reason}")
-        except Exception as e:
-            print(f"Azure failed: {e}")
-    
-    raise HTTPException(status_code=503, detail="No TTS available. pip3 install gtts")
+
+            if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+                return StreamingResponse(
+                    io.BytesIO(result.audio_data),
+                    media_type="audio/wav"
+                )
+        except Exception:
+            pass
+
+    raise HTTPException(
+        status_code=503,
+        detail="Text-to-speech service temporarily unavailable"
+    )
+
+
 
 if __name__ == "__main__":
     import uvicorn
@@ -270,5 +400,3 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 8000))
     )
-  
-
