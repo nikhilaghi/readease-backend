@@ -38,6 +38,7 @@ app.add_middleware(
 class TextInput(BaseModel):
     text: str = Field(..., max_length=2000, min_length=1)
     level: str = Field(default="medium")
+    mode: str = Field(default="summary")  
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
@@ -179,9 +180,12 @@ VOCABULARY_DB = {
 }
 
 
-def explain_text(text: str, level: str = "medium"):
+def explain_text(text: str, level: str = "medium", mode: str = "summary"):
     if level not in {"simple", "medium", "hard"}:
         level = "medium"
+
+    if mode not in {"summary", "rewrite"}:
+        mode = "summary"
 
     if not text.strip():
         raise HTTPException(status_code=400, detail="Empty text")
@@ -193,12 +197,7 @@ def explain_text(text: str, level: str = "medium"):
         sentence = simplify_vocabulary(sentence)
 
         for word, simple in ACADEMIC_SIMPLIFY_MAP.items():
-            sentence = re.sub(
-                rf"\b{word}\b",
-                simple,
-                sentence,
-                flags=re.IGNORECASE
-            )
+            sentence = re.sub(rf"\b{word}\b", simple, sentence, flags=re.IGNORECASE)
 
         words = sentence.split()
 
@@ -209,24 +208,21 @@ def explain_text(text: str, level: str = "medium"):
 
             sentence = sentence.replace(",", "").replace(";", "")
             sentence = re.sub(r'^(and|but|so)\s+', '', sentence, flags=re.IGNORECASE)
-            sentence = ' '.join(words[:14]).rstrip(",;:")
+            sentence = ' '.join(words[:14])
             sentence = trim_bad_ending(sentence)
-            sentence += "."
-            output.append(f"• {sentence.capitalize()}")
+            output.append(f"• {sentence.capitalize()}.")
 
         # MEDIUM
         elif level == "medium":
             if len(words) < 10:
                 continue
 
-            if len(words) > 30:
+            if mode == "summary" and len(words) > 30:
                 sentence = ' '.join(words[:25])
+                sentence = trim_bad_ending(sentence)
 
-            sentence = trim_bad_ending(sentence)
             sentence = close_unmatched_parenthesis(sentence)
-
-            sentence = sentence.strip()
-            sentence = sentence[0].upper() + sentence[1:]
+            sentence = sentence.strip().capitalize()
             if not sentence.endswith(('.', '!', '?')):
                 sentence += "."
 
@@ -237,23 +233,34 @@ def explain_text(text: str, level: str = "medium"):
             if len(words) < 12:
                 continue
 
-            sentence = sentence.strip()
-            sentence = sentence[0].upper() + sentence[1:]
+            if mode == "summary" and len(words) > 40:
+                sentence = ' '.join(words[:30])
+                sentence = trim_bad_ending(sentence)
+
+            sentence = sentence.strip().capitalize()
             if not sentence.endswith(('.', '!', '?')):
                 sentence += "."
 
             output.append(sentence)
 
-        if len(output) == (5 if level == "simple" else 3):
-            break
+        # SUMMARY LIMIT
+        if mode == "summary":
+            max_lines = 5 if level == "simple" else 6
+            if len(output) >= max_lines:
+                break
 
     final_text = "\n".join(output) if level == "simple" else " ".join(output)
+
+    if not final_text.strip():
+        final_text = "The text could not be simplified meaningfully."
 
     return {
         "text": final_text,
         "reading_time_minutes": estimate_reading_time(final_text),
         "estimated_grade_level": estimate_grade_level(final_text)
     }
+
+
 
 def extract_key_ideas(text: str) -> list:
     text = text.lower()
@@ -338,7 +345,7 @@ async def vocabulary_trainer(data: TextInput):
 
 @app.post("/process")
 async def process_text(data: TextInput):
-    explanation = explain_text(data.text, data.level)
+    explanation = explain_text(data.text, data.level, data.mode)
 
     return {
         "simplified_text": explanation["text"],
