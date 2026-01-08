@@ -83,27 +83,47 @@ def clean_output(text: str) -> str:
     if text and not re.search(r"[.!?]$", text):
         text += "."
     return text
-
 def explain_text(text: str) -> str:
     if not text.strip():
         raise HTTPException(status_code=400, detail="Empty text")
-    
+
     sentences = re.split(r'(?<=[.!?])\s+', text)
     simplified = []
-    for sentence in sentences[:5]:
-        if len(sentence) < 10: continue
-        simple = simplify_vocabulary(sentence)
-        words = simple.split()
-        if len(simple.split()) > 25:
-            parts = re.split(r'[;,–—]', simple)
-            if parts:
-                simple = parts[0].strip()
-            if not simple.endswith(('.', '!', '?')):
-                    simple += '.'
+
+    for sentence in sentences:
+        if len(sentence.split()) < 12:
+            continue
+
+        sentence = simplify_vocabulary(sentence)
+
+        # Split into clauses safely
+        clauses = re.split(r'[;–—]', sentence)
+        selected = []
+
+        for clause in clauses:
+            clause = clause.strip()
+            if len(clause.split()) >= 8:
+                selected.append(clause)
+            if len(selected) == 2:
+                break
+
+        if not selected:
+            continue
+
+        combined = '. '.join(selected).strip()
+
+        if not combined.endswith(('.', '!', '?')):
+            combined += '.'
+
+        simplified.append(combined)
+
+        if len(simplified) == 3:
+            break
 
     final = ' '.join(simplified)
-final = re.sub(r'\s+\.', '.', final)
-return clean_output(final)
+    final = re.sub(r'\s+\.', '.', final)
+    return final
+
 
 
 def extract_key_ideas(text: str) -> list:
