@@ -125,26 +125,36 @@ def explain_text(text: str, level: str = "medium"):
 
             sentence = sentence.replace(",", "").replace(";", "")
             sentence = re.sub(r'^(and|but|so)\s+', '', sentence, flags=re.IGNORECASE)
-            sentence = ' '.join(words[:14])
-
+            sentence = ' '.join(words[:14]).rstrip(",;:") + "."
             output.append(f"• {sentence.capitalize()}")
 
         elif level == "medium":
             if len(words) < 10:
                 continue
+
             if len(words) > 30:
-                sentence = ' '.join(words[:25])
+                sentence = ' '.join(words[:25]).rstrip(",;:") + "."
+            else:
+                sentence = sentence.rstrip(",;:")
 
             sentence = sentence.strip()
             sentence = sentence[0].upper() + sentence[1:]
+
+            if not sentence.endswith(('.', '!', '?')):
+                sentence += "."
+
             output.append(sentence)
 
-        else:  
+        else:
             if len(words) < 12:
                 continue
 
             sentence = sentence.strip()
             sentence = sentence[0].upper() + sentence[1:]
+
+            if not sentence.endswith(('.', '!', '?')):
+                sentence += "."
+
             output.append(sentence)
 
         if len(output) == (5 if level == "simple" else 3):
@@ -157,6 +167,7 @@ def explain_text(text: str, level: str = "medium"):
         "reading_time_minutes": estimate_reading_time(final_text),
         "estimated_grade_level": estimate_grade_level(final_text)
     }
+
 
 
 
