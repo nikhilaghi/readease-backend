@@ -114,6 +114,10 @@ def trim_bad_ending(sentence: str) -> str:
 
     return " ".join(words)
 
+def close_unmatched_parenthesis(sentence: str) -> str:
+    if sentence.count("(") > sentence.count(")"):
+        sentence = sentence.rsplit("(", 1)[0].strip()
+    return sentence
 
 
 def explain_text(text: str, level: str = "medium"):
@@ -153,7 +157,9 @@ def explain_text(text: str, level: str = "medium"):
 
             sentence = sentence.rstrip(",;:")
             sentence = trim_bad_ending(sentence)
+            sentence = close_unmatched_parenthesis(sentence)
             sentence = sentence.strip()
+
 
             sentence = sentence[0].upper() + sentence[1:]
             if not sentence.endswith(('.', '!', '?')):
