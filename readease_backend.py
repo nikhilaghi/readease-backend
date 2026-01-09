@@ -142,42 +142,83 @@ ACADEMIC_SIMPLIFY_MAP = {
 
 VOCABULARY_DB = {
     "ontological": {
-        "meaning": "related to the nature of existence",
+        "meaning": "related to the nature of existence or being",
         "example": "The ontological question asks what truly exists."
     },
     "epistemological": {
-        "meaning": "related to the study of knowledge",
-        "example": "Epistemological debates focus on how we know things."
+        "meaning": "related to the study of knowledge and how we know things",
+        "example": "Epistemological debates focus on the sources of knowledge."
     },
-    "ephemeral": {
-        "meaning": "lasting for a very short time",
-        "example": "Online trends are often ephemeral."
-    },
-    "perennial": {
-        "meaning": "lasting for a long time",
-        "example": "Education is a perennial human need."
-    },
-    "hermeneutics": {
-        "meaning": "the theory of interpretation",
-        "example": "Hermeneutics helps interpret complex texts."
+    "discourse": {
+        "meaning": "formal discussion or written communication",
+        "example": "Academic discourse often uses specialized language."
     },
     "paradox": {
-        "meaning": "a statement that seems contradictory but may be true",
-        "example": "It is a paradox that less is sometimes more."
-    },
-    "recalibration": {
-        "meaning": "the process of adjusting something",
-        "example": "The system needs recalibration after updates."
-    },
-    "labyrinthine": {
-        "meaning": "very complex or confusing",
-        "example": "The rules were labyrinthine and hard to follow."
+        "meaning": "a situation or statement that seems contradictory but may be true",
+        "example": "It is a paradox that less can sometimes be more."
     },
     "cognition": {
-        "meaning": "the mental process of thinking and understanding",
-        "example": "Reading improves cognition."
+        "meaning": "the mental process of thinking, understanding, and learning",
+        "example": "Reading regularly improves cognition."
+    },
+    "framework": {
+        "meaning": "a basic structure used to support ideas or theories",
+        "example": "The framework helps organize complex concepts."
+    },
+    "theoretical": {
+        "meaning": "based on ideas rather than practical experience",
+        "example": "The paper presents a theoretical model of learning."
+    },
+    "comprehension": {
+        "meaning": "the ability to understand something",
+        "example": "Good comprehension is essential for academic success."
+    },
+    "interdisciplinary": {
+        "meaning": "involving two or more academic disciplines",
+        "example": "The course takes an interdisciplinary approach."
+    },
+    "methodology": {
+        "meaning": "a system of methods used in research or study",
+        "example": "The research methodology is clearly explained."
+    },
+    "cognitive": {
+        "meaning": "related to mental processes like thinking and memory",
+        "example": "Cognitive skills affect how students learn."
+    },
+    "articulate": {
+        "meaning": "to express ideas clearly and effectively",
+        "example": "She articulated her argument well."
+    },
+    "implicit": {
+        "meaning": "suggested without being directly stated",
+        "example": "The rules were implicit rather than written."
+    },
+    "explicit": {
+        "meaning": "clearly stated and easy to understand",
+        "example": "The instructions were explicit."
+    },
+    "interpretation": {
+        "meaning": "the act of explaining the meaning of something",
+        "example": "Different readers may have different interpretations."
+    },
+    "complexity": {
+        "meaning": "the state of having many parts or being difficult to understand",
+        "example": "The complexity of the text made it hard to read."
+    },
+    "precision": {
+        "meaning": "accuracy and exactness",
+        "example": "Academic writing values precision."
+    },
+    "abstraction": {
+        "meaning": "an idea that is not concrete or physical",
+        "example": "Abstraction is common in theoretical subjects."
+    },
+    "synthesis": {
+        "meaning": "combining different ideas to form a whole",
+        "example": "The essay demonstrates synthesis of multiple sources."
     }
 }
+
 
 
 def safe_sentence(sentence: str) -> str:
@@ -192,6 +233,15 @@ def safe_sentence(sentence: str) -> str:
         words.pop()
 
     return " ".join(words)
+
+
+def is_fragment(sentence: str) -> bool:
+    bad_starts = (
+        "and ", "but ", "or ", "especially ", "which ",
+        "that ", "because ", "while ", "not only ",
+        "also ", "particularly ", "such as "
+    )
+    return sentence.lower().startswith(bad_starts)
 
 
 def explain_text(text: str, level: str = "medium", mode: str = "summary"):
@@ -210,12 +260,12 @@ def explain_text(text: str, level: str = "medium", mode: str = "summary"):
 
     # ---------- SENTENCE SPLIT ----------
     sentences = re.split(r'(?<=[.!?])\s+', text)
-
     simplified_sentences = []
 
     for sentence in sentences:
         # ---------- VOCAB SIMPLIFICATION ----------
         sentence = simplify_vocabulary(sentence)
+
         for word, simple in ACADEMIC_SIMPLIFY_MAP.items():
             sentence = re.sub(
                 rf"\b{word}\b",
@@ -224,7 +274,7 @@ def explain_text(text: str, level: str = "medium", mode: str = "summary"):
                 flags=re.IGNORECASE
             )
 
-        # ---------- BREAK LONG SENTENCES ----------
+        # ---------- SPLIT LONG SENTENCES SAFELY ----------
         if len(sentence.split()) > 28:
             parts = re.split(
                 r",|;|—|\bwhich\b|\bthat\b|\bbecause\b|\bwhile\b",
@@ -236,9 +286,15 @@ def explain_text(text: str, level: str = "medium", mode: str = "summary"):
 
         for part in parts:
             part = part.strip()
+
+            # 🚫 Reject fragments
+            if is_fragment(part):
+                continue
+
             part = safe_sentence(part)
 
-            if len(part.split()) < 6:
+            # 🚫 Reject too short / weak clauses
+            if len(part.split()) < 8:
                 continue
 
             part = part.capitalize()
@@ -247,14 +303,12 @@ def explain_text(text: str, level: str = "medium", mode: str = "summary"):
 
             simplified_sentences.append(part)
 
-    # ---------- SUMMARY MODE ----------
+    # ---------- SUMMARY / REWRITE ----------
     if mode == "summary":
         if level == "simple":
             final_text = "\n".join(f"• {s}" for s in simplified_sentences[:5])
         else:
             final_text = " ".join(simplified_sentences[:6])
-
-    # ---------- REWRITE MODE ----------
     else:
         if level == "simple":
             final_text = "\n".join(f"• {s}" for s in simplified_sentences)
@@ -270,8 +324,6 @@ def explain_text(text: str, level: str = "medium", mode: str = "summary"):
         "reading_time_minutes": estimate_reading_time(final_text),
         "estimated_grade_level": estimate_grade_level(final_text)
     }
-
-
 
 
 def extract_key_ideas(text: str) -> list:
@@ -334,6 +386,13 @@ def extract_vocabulary(text: str, limit: int = 5):
 
         if len(vocab_list) == limit:
             break
+
+    if not vocab_list:
+        return [{
+            "word": "—",
+            "meaning": "No advanced academic terms detected in this text.",
+            "example": "Try pasting a more technical paragraph."
+        }]
 
     return vocab_list
 
