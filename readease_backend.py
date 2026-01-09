@@ -69,9 +69,10 @@ async def home():
     }
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     return {"status": "healthy"}
+
 
 def simplify_vocabulary(text: str) -> str:
     replacements = {
@@ -367,13 +368,14 @@ def explain_text(text: str, level: str = "medium", mode: str = "summary"):
                 flags=re.IGNORECASE
             )
 
-        # ---------- SPLIT LONG SENTENCES SAFELY ----------
-        if len(sentence.split()) > 28:
-            parts = re.split(
-                r",|;|—|\bwhich\b|\bthat\b|\bbecause\b|\bwhile\b",
-                sentence,
-                flags=re.IGNORECASE
-            )
+       # ---------- SPLIT LONG SENTENCES ----------
+            if mode == "summary" and len(sentence.split()) > 28:
+                parts = re.split(
+                    r",|;|—|\bwhich\b|\bthat\b|\bbecause\b|\bwhile\b",
+                    sentence,
+                    flags=re.IGNORECASE
+                    )
+
         else:
             parts = [sentence]
 
@@ -387,8 +389,9 @@ def explain_text(text: str, level: str = "medium", mode: str = "summary"):
             part = safe_sentence(part)
 
             # 🚫 Reject too short / weak clauses
-            if len(part.split()) < 8:
-                continue
+            if mode == "summary" and len(part.split()) < 8:
+                 continue
+
 
             part = part.capitalize()
             if not part.endswith(('.', '!', '?')):
