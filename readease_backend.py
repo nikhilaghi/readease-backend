@@ -219,6 +219,99 @@ VOCABULARY_DB = {
     }
 }
 
+VOCABULARY_DB.update({
+
+    "analysis": {
+        "meaning": "a detailed examination to understand something better",
+        "example": "The analysis of the data revealed important trends."
+    },
+
+    "evaluation": {
+        "meaning": "judging the quality or value of something",
+        "example": "The evaluation measured student performance."
+    },
+
+    "hypothesis": {
+        "meaning": "a testable explanation or prediction",
+        "example": "The hypothesis was tested through experiments."
+    },
+
+    "inference": {
+        "meaning": "a conclusion drawn from evidence",
+        "example": "An inference was made based on the results."
+    },
+
+    "correlation": {
+        "meaning": "a relationship between two variables",
+        "example": "There is a correlation between sleep and learning."
+    },
+
+    "significance": {
+        "meaning": "importance or meaning of something",
+        "example": "The findings have scientific significance."
+    },
+
+    "assumption": {
+        "meaning": "something believed to be true without proof",
+        "example": "The model relies on several assumptions."
+    },
+
+    "limitation": {
+        "meaning": "a weakness or restriction in a study",
+        "example": "A limitation of the study was the small sample size."
+    },
+
+    "perspective": {
+        "meaning": "a way of viewing or thinking about something",
+        "example": "The issue was analyzed from a social perspective."
+    },
+
+    "empirical": {
+        "meaning": "based on observation or experiment",
+        "example": "The theory is supported by empirical evidence."
+    },
+
+    "methodological": {
+        "meaning": "related to research methods",
+        "example": "The paper discusses methodological challenges."
+    },
+
+    "consistency": {
+        "meaning": "the quality of being reliable and stable",
+        "example": "The experiment showed consistency across trials."
+    },
+
+    "relevance": {
+        "meaning": "how closely something is related to the topic",
+        "example": "The topic has strong relevance to education."
+    },
+
+    "validation": {
+        "meaning": "confirmation that something is correct",
+        "example": "Further validation of the model is required."
+    },
+
+    "implementation": {
+        "meaning": "putting a plan or idea into action",
+        "example": "Implementation of the policy begins next year."
+    },
+
+    "optimization": {
+        "meaning": "making something as effective as possible",
+        "example": "The algorithm focuses on optimization."
+    },
+
+    "constraint": {
+        "meaning": "a limitation or restriction",
+        "example": "Time was a major constraint in the project."
+    },
+
+    "generalization": {
+        "meaning": "a broad conclusion drawn from specific cases",
+        "example": "Generalization should be done carefully in research."
+    }
+
+})
 
 
 def safe_sentence(sentence: str) -> str:
